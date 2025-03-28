@@ -155,66 +155,6 @@ bsp_t build(std::vector<line_t> lines) {
     return ctx.nodes;
 }
 
-// split tree in-place, return indices to new tree's root (?)
-
-//size_t split_tree(bsp_t &bsp, size_t nid, line_t const& hyperplane) {
-//
-//    // detect leaves
-//    if (EMPTY_LEAF == nid || SOLID_LEAF == nid) return nid;
-//
-//    node_t &node = bsp[nid];
-//
-////    if ((bsp[nid].plane.p.is_left_of(hyperplane) || bsp[nid].plane.p.is_exactly_on(hyperplane))
-////    && (bsp[nid].plane.q.is_left_of(hyperplane) || bsp[nid].plane.q.is_exactly_on(hyperplane))) {
-////        node.left = split_tree(bsp, node.left, hyperplane);
-////        node.right = split_tree(bsp, node.right, hyperplane);
-////        return EMPTY_LEAF;
-////    } else if ((!bsp[nid].plane.p.is_left_of(hyperplane) || bsp[nid].plane.p.is_exactly_on(hyperplane))
-////    && (!bsp[nid].plane.q.is_left_of(hyperplane) || bsp[nid].plane.q.is_exactly_on(hyperplane))) {
-////        node.left = split_tree(bsp, node.left, hyperplane);
-////        node.right = split_tree(bsp, node.right, hyperplane);
-////        return nid;
-////    }
-//    // traverse down the tree if hyperplane is on one side of current node
-//    if (bsp[nid].plane.p.is_left_of(hyperplane) == bsp[nid].plane.q.is_left_of(hyperplane)
-//    || bsp[nid].plane.p.is_exactly_on(hyperplane)
-//    || bsp[nid].plane.q.is_exactly_on(hyperplane)) {
-//        split_tree(bsp, node.left, hyperplane);
-//        split_tree(bsp, node.right, hyperplane);
-//        return nid;
-//    } else {
-//        // split the segment
-//        line_t subj = bsp[nid].plane;
-//        line_t out1, out2;
-//        split_line(hyperplane, subj, out1, out2);
-//
-//        // assert that out1 and out2 each have a point exactly on hyperplane
-//        assert(out1.p.is_exactly_on(hyperplane) || out1.q.is_exactly_on(hyperplane));
-//        assert(out2.p.is_exactly_on(hyperplane) || out2.q.is_exactly_on(hyperplane));
-//
-//        //line_t ll, lr;
-//        //ll = bsp[nid].plane.p.is_left_of(hyperplane) ? out1 : out2;
-//        //lr = bsp[nid].plane.p.is_left_of(hyperplane) ? out2 : out1;
-//
-//        node.plane = out1;
-//
-//        bsp.push_back(node); // push copy
-//        bsp.back().plane = out2;
-//        
-//        node.right = split_tree(bsp, bsp.size() - 1, hyperplane);
-//        node.left = split_tree(bsp, node.left, hyperplane);
-//        
-//        return nid;
-//    }
-//}
-
-//// merge two bsp trees
-//// descend down the bsp_a, partition bsp_b along the way
-//void merge(bsp_t const& bsp_a, size_t const& nid, bsp_t const& bsp_b) {
-//    
-//}
-
-// write traversal functions
 bool is_solid(bsp_t const& bsp, size_t const& nid, vec2_t point) {
     // recurse until leaf
     if (EMPTY_LEAF == nid) return false;
@@ -228,37 +168,176 @@ bool is_solid(bsp_t const& bsp, size_t const& nid, vec2_t point) {
     }
 }
 
-bool sweep_impl(bsp_t const& bsp, size_t const& nid, vec2_t const& p1, vec2_t const& p2, float t1, float t2, line_t last_line, vec2_t &out, line_t &out_line) {
+bool sweep_impl(bsp_t const& bsp, size_t const& nid, line_t const& line, float t1, float t2, line_t last_line, vec2_t &out, line_t &out_line) {
     if (EMPTY_LEAF == nid) return false;
     if (SOLID_LEAF == nid) {
         out_line = last_line;
-        out = p1 + (p2 - p1) * (t1 - 1e-4);
+        out = line.p + (line.q - line.p) * (t1 - 1e-4);
         return true;
     }
 
     node_t const& node = bsp[nid];
     line_t hyperplane = node.plane;
 
-    vec2_t p_s1 = p1 + (p2 - p1) * t1;
-    vec2_t p_s2 = p1 + (p2 - p1) * t2;
+    vec2_t p_t1 = line.p + (line.q - line.p) * t1;
+    vec2_t p_t2 = line.p + (line.q - line.p) * t2;
 
-    if (p_s1.is_left_of(hyperplane) == p_s2.is_left_of(hyperplane)) {
-        size_t next = p_s1.is_left_of(hyperplane) ? node.left : node.right;
-        return sweep_impl(bsp, next, p1, p2, t1, t2, last_line, out, out_line);
+    if (p_t1.is_left_of(hyperplane) == p_t2.is_left_of(hyperplane)) {
+        size_t next = p_t1.is_left_of(hyperplane) ? node.left : node.right;
+        return sweep_impl(bsp, next, line, t1, t2, last_line, out, out_line);
     } else { // split swept line (aka pass new t1 & t2)
         float t, s;
-        line_intersect_gg3({p1, p2}, hyperplane, t, s);
+        line_intersect_gg3(line, hyperplane, t, s);
 
-        size_t first = p_s1.is_left_of(hyperplane) ? node.left : node.right;
-        size_t second = p_s1.is_left_of(hyperplane) ? node.right : node.left;
+        size_t first = p_t1.is_left_of(hyperplane) ? node.left : node.right;
+        size_t second = p_t1.is_left_of(hyperplane) ? node.right : node.left;
 
-        if (sweep_impl(bsp, first, p1, p2, t1, t, last_line, out, out_line)) return true;
-        return sweep_impl(bsp, second, p1, p2, t, t2, hyperplane, out, out_line);
+        if (sweep_impl(bsp, first, line, t1, t, last_line, out, out_line)) return true;
+        return sweep_impl(bsp, second, line, t, t2, hyperplane, out, out_line);
     }
 }
 
 bool sweep(bsp_t const& bsp, line_t const& line, vec2_t &intersection, line_t &intersected) {
-    return sweep_impl(bsp, 0, line.p, line.q, 0.f, 1.f, line_t(), intersection, intersected);
+    return sweep_impl(bsp, 0, line, 0.f, 1.f, line_t(), intersection, intersected);
+}
+
+
+struct clip_context_t;
+
+typedef bool (*leaf_callback)(clip_context_t &ctx, float t1, float t2, void *userdata);
+
+struct clip_context_t {
+    const bsp_t *bsp;
+    const line_t *line;
+    leaf_callback on_empty;
+    leaf_callback on_solid;
+    void *userdata; // used for output, etc.
+};
+
+// clip line against bsp tree recursively
+bool clip_impl(clip_context_t &ctx, size_t nid, float t1, float t2) {
+    
+    if (SOLID_LEAF == nid) return ctx.on_solid(ctx, t1, t2, ctx.userdata);
+    if (EMPTY_LEAF == nid) return ctx.on_empty(ctx, t1, t2, ctx.userdata);
+
+    node_t const& node = (*ctx.bsp)[nid];
+    line_t hyperplane = node.plane;
+
+    vec2_t p_t1 = ctx.line->p + (ctx.line->q - ctx.line->p) * t1;
+    vec2_t p_t2 = ctx.line->p + (ctx.line->q - ctx.line->p) * t2;
+
+    if (p_t1.is_left_of(hyperplane) == p_t2.is_left_of(hyperplane)
+    || p_t1.is_exactly_on(hyperplane) || p_t2.is_exactly_on(hyperplane)) {
+        size_t next = p_t1.is_left_of(hyperplane) ? node.left : node.right;
+        return clip_impl(ctx, next, t1, t2);
+    } else { // split swept line (aka pass new t1 & t2)
+        float t, s;
+        line_intersect_gg3(*ctx.line, hyperplane, t, s);
+
+        size_t first = p_t1.is_left_of(hyperplane) ? node.left : node.right;
+        size_t second = p_t1.is_left_of(hyperplane) ? node.right : node.left;
+
+        if (clip_impl(ctx, first, t1, t)) return true;
+        return clip_impl(ctx, second, t, t2);
+    }
+}
+
+bool cb_do_nothing(clip_context_t &, float, float, void *) { return false; }
+
+bool cb_push_segment(clip_context_t &ctx, float t1, float t2, void *userdata) {
+    vec2_t p_t1 = ctx.line->p + (ctx.line->q - ctx.line->p) * t1;
+    vec2_t p_t2 = ctx.line->p + (ctx.line->q - ctx.line->p) * t2;
+    std::vector<line_t> &out = *(std::vector<line_t> *)userdata;
+    out.push_back({p_t1, p_t2});
+    return false;
+}
+
+bool cb_push_flipped_segment(clip_context_t &ctx, float t1, float t2, void *userdata) {
+    vec2_t p_t1 = ctx.line->p + (ctx.line->q - ctx.line->p) * t1;
+    vec2_t p_t2 = ctx.line->p + (ctx.line->q - ctx.line->p) * t2;
+    std::vector<line_t> &out = *(std::vector<line_t> *)userdata;
+    out.push_back({p_t2, p_t1});
+    return false;
+}
+
+bsp_t bsp_union(bsp_t const& a, bsp_t const& b) {
+    std::vector<line_t> out;
+
+    clip_context_t ctx;
+    ctx.userdata = &out;
+    ctx.on_solid = cb_do_nothing;
+    ctx.on_empty = cb_push_segment;
+    ctx.bsp = &a;
+
+    for (node_t node : b) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+
+    ctx.bsp = &b;
+
+    for (node_t node : a) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+    
+    return build(out);
+}
+
+bsp_t bsp_intersection(bsp_t const& a, bsp_t const& b) {
+    std::vector<line_t> out;
+
+    clip_context_t ctx;
+    ctx.userdata = &out;
+    ctx.on_solid = cb_push_segment;
+    ctx.on_empty = cb_do_nothing;
+    ctx.bsp = &a;
+
+    for (node_t node : b) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+
+    ctx.bsp = &b;
+
+    for (node_t node : a) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+    
+    return build(out);
+}
+
+bsp_t bsp_difference(bsp_t const& a, bsp_t const& b) {
+    std::vector<line_t> out;
+
+    clip_context_t ctx;
+    ctx.userdata = &out;
+    ctx.on_solid = cb_push_flipped_segment;
+    ctx.on_empty = cb_do_nothing;
+    ctx.bsp = &a;
+
+    for (node_t node : b) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+
+    ctx.on_solid = cb_do_nothing;
+    ctx.on_empty = cb_push_segment;
+    ctx.bsp = &b;
+
+    for (node_t node : a) {
+        ctx.line = &node.plane;
+        clip_impl(ctx, 0, 0.f, 1.f);
+    }
+    
+    return build(out);
+}
+
+bsp_t bsp_xor(bsp_t const& a, bsp_t const& b) {
+    bsp_t a_sub_b = bsp_difference(a, b);
+    bsp_t b_sub_a = bsp_difference(b, a);
+    return bsp_union(a_sub_b, b_sub_a);
 }
 
 vec2_t project_to(vec2_t const& p, line_t const& line) {
@@ -285,9 +364,7 @@ void dot_solve(bsp_t const& bsp, vec2_t const& p1, vec2_t &p2) {
 }
 
 // todo:
-//  - implement merge function
-//  - use merge to implement union operation
-
+//  - write better split function
 //  - have a look at new heuristic
 //  - check if implementation can use TCO
 
