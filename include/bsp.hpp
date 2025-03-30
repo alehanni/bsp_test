@@ -145,6 +145,8 @@ size_t build_helper(build_context_t &ctx, line_t hyperplane, size_t i_begin, siz
 
 // build bsp-tree from lines
 bsp_t build(std::vector<line_t> lines) {
+    assert(lines.size() > 0);
+
     build_context_t ctx;
     ctx.tmp = std::move(lines);
 
@@ -226,19 +228,27 @@ bool clip_impl(clip_context_t &ctx, size_t nid, float t1, float t2) {
     vec2_t p_t1 = ctx.line->p + (ctx.line->q - ctx.line->p) * t1;
     vec2_t p_t2 = ctx.line->p + (ctx.line->q - ctx.line->p) * t2;
 
-    if (p_t1.is_left_of(hyperplane) == p_t2.is_left_of(hyperplane)
-    || p_t1.is_exactly_on(hyperplane) || p_t2.is_exactly_on(hyperplane)) {
+    if (p_t1.is_left_of(hyperplane) == p_t2.is_left_of(hyperplane)) {
         size_t next = p_t1.is_left_of(hyperplane) ? node.left : node.right;
         return clip_impl(ctx, next, t1, t2);
     } else { // split swept line (aka pass new t1 & t2)
         float t, s;
         line_intersect_gg3(*ctx.line, hyperplane, t, s);
 
-        size_t first = p_t1.is_left_of(hyperplane) ? node.left : node.right;
-        size_t second = p_t1.is_left_of(hyperplane) ? node.right : node.left;
+        vec2_t p_t = ctx.line->p + (ctx.line->q - ctx.line->p) * t;
+        
+        float eps = 0.1;
+        if (dist2(p_t, p_t1) > eps*eps && dist2(p_t, p_t2) > eps*eps) {
+            size_t first = p_t1.is_left_of(hyperplane) ? node.left : node.right;
+            size_t second = p_t1.is_left_of(hyperplane) ? node.right : node.left;
 
-        if (clip_impl(ctx, first, t1, t)) return true;
-        return clip_impl(ctx, second, t, t2);
+            if (clip_impl(ctx, first, t1, t)) return true;
+            return clip_impl(ctx, second, t, t2);
+        } else {
+            // use midpoint
+            size_t next = ((p_t1 + p_t2) / 2.f).is_left_of(hyperplane) ? node.left : node.right;
+            return clip_impl(ctx, next, t1, t2);
+        }
     }
 }
 
@@ -261,8 +271,13 @@ bool cb_push_flipped_segment(clip_context_t &ctx, float t1, float t2, void *user
 }
 
 bsp_t bsp_union(bsp_t const& a, bsp_t const& b) {
-    std::vector<line_t> out;
+    
+    assert(!(a.empty() && b.empty()));
+    if (a.empty() ^ b.empty()) { // short circuit if empty operand
+        return (a.empty()) ? b : a;
+    }
 
+    std::vector<line_t> out;
     clip_context_t ctx;
     ctx.userdata = &out;
     ctx.on_solid = cb_do_nothing;
