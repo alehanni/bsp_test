@@ -103,7 +103,7 @@ bool split_line(line_t const& hyperplane, line_t const& subj, line_t &out1, line
 size_t build_helper(build_context_t &ctx, line_t hyperplane, size_t i_begin, size_t i_end) {
 
     // split line segment if p and q are on opposite sides of hyperplane
-    for (size_t i=i_begin; i != i_end; i++) {
+    for (size_t i=i_begin; i != i_end && i != ctx.tmp.size(); i++) {
         if (ctx.tmp[i].p.is_left_of(hyperplane) != ctx.tmp[i].q.is_left_of(hyperplane)) {
             line_t out1, out2;
             if (split_line(hyperplane, ctx.tmp[i], out1, out2)) {
