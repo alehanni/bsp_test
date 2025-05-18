@@ -32,4 +32,11 @@ sources = []
 inc += include_directories('include')
 subdir('src')
 
-executable('demo', sources, include_directories : inc, dependencies : deps)
+executable(
+    'demo',
+    sources,
+    include_directories : inc,
+    dependencies : deps,
+#    cpp_args: ['-fsanitize=address','-g3'],
+#    link_args: '-fsanitize=address'
+)
