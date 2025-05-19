@@ -17,11 +17,6 @@ struct vec2_t {
         vec2_t dl = l.q - l.p;
         return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) < 0;
     }
-
-    bool is_exactly_on(auto l) const {
-        vec2_t dl = l.q - l.p;
-        return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) == 0;
-    }
 };
 
 static float dist2(vec2_t const& p, vec2_t const& q) {
@@ -38,8 +33,6 @@ static vec2_t get_normal(vec2_t p, vec2_t q) {
 
 struct line_t {
     vec2_t p, q;
-    void *userdata;
-    
     vec2_t normal;
     line_t &w_normal() { normal = get_normal(p, q); return *this; }
 };

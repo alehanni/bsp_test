@@ -14,19 +14,32 @@ namespace alh::bsp {
     static constexpr size_t EMPTY_LEAF = (size_t)(-1);
     static constexpr size_t SOLID_LEAF = (size_t)(-2);
 
+    struct bsp_t;
+
+    struct edge_t {
+        size_t lid;
+        float t1, t2;
+        vec2_t p(bsp_t const& bsp) const;
+        vec2_t q(bsp_t const& bsp) const;
+        line_t line(bsp_t const& bsp) const;
+    };
+    
     struct node_t {
-        line_t plane;
+        edge_t plane;
         size_t right, left;
     };
 
-    using bsp_t = typename std::vector<node_t>;
+    struct bsp_t {
+        std::vector<line_t> lines;
+        std::vector<node_t> nodes;
+    };
 
     struct clip_context_t;
     typedef bool (*leaf_callback)(clip_context_t &ctx, float t1, float t2, void *userdata);
 
     struct clip_context_t {
         const bsp_t *bsp;
-        const line_t *line;
+        const edge_t *edge;
         leaf_callback on_empty;
         leaf_callback on_solid;
         void *userdata; // used for output, etc.
