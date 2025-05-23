@@ -13,9 +13,14 @@ struct vec2_t {
     friend vec2_t operator*(vec2_t const& lhs, float const& rhs) {return {lhs.x*rhs, lhs.y*rhs}; }
     friend vec2_t operator/(vec2_t const& lhs, float const& rhs) {return {lhs.x/rhs, lhs.y/rhs}; }
     
-    bool is_left_of(auto l) const {
+    bool is_left_of(auto l) const { // todo: avoid using auto here
         vec2_t dl = l.q - l.p;
         return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) < 0;
+    }
+
+    bool is_exactly_on(auto l) const {
+        vec2_t dl = l.q - l.p;
+        return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) == 0;
     }
 };
 
@@ -33,6 +38,8 @@ static vec2_t get_normal(vec2_t p, vec2_t q) {
 
 struct line_t {
     vec2_t p, q;
+    void *userdata;
+    
     vec2_t normal;
     line_t &w_normal() { normal = get_normal(p, q); return *this; }
 };
