@@ -1,5 +1,5 @@
-#ifndef ALH_H
-#define ALH_H
+#ifndef ALH_HPP
+#define ALH_HPP
 
 #include <cassert>
 #include <cmath>
@@ -12,6 +12,8 @@ struct vec2_t {
     friend vec2_t operator-(vec2_t const& lhs, vec2_t const& rhs) {return {lhs.x-rhs.x, lhs.y-rhs.y}; }
     friend vec2_t operator*(vec2_t const& lhs, float const& rhs) {return {lhs.x*rhs, lhs.y*rhs}; }
     friend vec2_t operator/(vec2_t const& lhs, float const& rhs) {return {lhs.x/rhs, lhs.y/rhs}; }
+    friend bool operator==(vec2_t const& lhs, vec2_t const& rhs) { return (lhs.x==rhs.x && lhs.y==rhs.y); }
+    friend bool operator!=(vec2_t const& lhs, vec2_t const& rhs) { return !(lhs == rhs); }
     
     bool is_left_of(auto l) const { // todo: avoid using auto here
         vec2_t dl = l.q - l.p;
@@ -27,6 +29,10 @@ struct vec2_t {
 static float dist2(vec2_t const& p, vec2_t const& q) {
     vec2_t pq = q - p;
     return (pq.x*pq.x + pq.y*pq.y);
+}
+
+static float dist(vec2_t const& p, vec2_t const& q) {
+    return sqrtf(dist2(p, q));
 }
 
 static vec2_t get_normal(vec2_t p, vec2_t q) {

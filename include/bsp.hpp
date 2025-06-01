@@ -1,5 +1,5 @@
-#ifndef ALH_BSP_H
-#define ALH_BSP_H
+#ifndef ALH_BSP_HPP
+#define ALH_BSP_HPP
 
 #include <cassert>
 #include <cstdint>
@@ -11,8 +11,12 @@
 
 namespace alh::bsp {
 
-    static constexpr size_t EMPTY_LEAF = (size_t)(-1);
-    static constexpr size_t SOLID_LEAF = (size_t)(-2);
+    using id_t = uint32_t;
+    static constexpr id_t IS_LEAF = 0x80000000;
+    static constexpr id_t IS_SOLID = 0x40000000;
+    static inline bool is_leaf(id_t nid) { return (nid & IS_LEAF); };
+    static inline bool solid_leaf(id_t nid) { return (is_leaf(nid) && nid & IS_SOLID); }
+    static inline bool empty_leaf(id_t nid) { return (is_leaf(nid) && !(nid & IS_SOLID)); }
 
     struct paramline_t {
         line_t line;
@@ -29,14 +33,6 @@ namespace alh::bsp {
             return *this;
         }
 
-        //explicit operator line_t() const {
-        //    line_t l;
-        //    l.p = line.p + (line.q - line.p) * t1;
-        //    l.q = line.p + (line.q - line.p) * t2;
-        //    l.userdata = line.userdata;
-        //    return l;
-        //}
-
         line_t apply() const {
             line_t l;
             l.p = line.p + (line.q - line.p) * t1;
@@ -47,12 +43,12 @@ namespace alh::bsp {
         }
     };
 
-    struct node_t {
+    struct bsp_node_t {
         paramline_t plane;
-        size_t right, left;
+        id_t right, left;
     };
 
-    using bsp_t = typename std::vector<node_t>;
+    using bsp_t = typename std::vector<bsp_node_t>;
 
     struct clip_context_t;
     typedef bool (*leaf_callback)(clip_context_t &ctx, float t1, float t2, void *userdata);
@@ -68,9 +64,10 @@ namespace alh::bsp {
     bsp_t build(std::vector<line_t> lines);
     bsp_t build(std::vector<paramline_t> paramlines);
     
-    bool is_solid(bsp_t const& bsp, size_t nid, vec2_t const& point);
+    bool is_solid(bsp_t const& bsp, id_t nid, vec2_t const& point);
+    id_t leaf_id(bsp_t const& bsp, id_t nid, vec2_t const& point);
     bool sweep(bsp_t const& bsp, line_t const& line, vec2_t &intersection, line_t &intersected);
-    bool clip(clip_context_t &ctx, size_t root);
+    bool clip(clip_context_t &ctx, id_t root);
     void dot_solve(bsp_t const& bsp, vec2_t const& p1, vec2_t &p2);
 
     bsp_t union_op(bsp_t const& a, bsp_t const& b);
@@ -79,10 +76,5 @@ namespace alh::bsp {
     bsp_t xor_op(bsp_t const& a, bsp_t const& b);
 
 } // namespace alh::bsp
-
-// todo:
-//  - write better split function
-//  - have a look at new heuristic
-//  - check if implementation can use TCO
 
 #endif
