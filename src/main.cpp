@@ -10,27 +10,40 @@ using namespace alh;
 
 vec2_t player_pos = {240.f, 120.f};
 
-void draw_tree(bsp::bsp_t &bsp, size_t nid, Color col) {
+void draw_cross(vec2_t p, uint32_t col) {
+    // draw a cute little cross
+    p.x = floorf(p.x);
+    p.y = floorf(p.y);
+    vec2_t p1, p2, p3, p4;
+    p1 = p - vec2_t{2.f, 2.f};
+    p2 = p + vec2_t{2.f, 2.f};
+    p3 = p - vec2_t{2.f, -2.f};
+    p4 = p + vec2_t{2.f, -2.f};
+    dbg_line(p1.x, p1.y, p2.x, p2.y, col);
+    dbg_line(p3.x, p3.y, p4.x, p4.y, col);
+}
+
+void draw_tree(bsp::bsp_t &bsp, bsp::id_t nid, Color col) {
     // draw bsp tree by traversing nodes
 
     //Color colors[] = {LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON, GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET, DARKPURPLE, BEIGE, BROWN, DARKBROWN};
     //Color rcol = colors[GetRandomValue(0, 20)];
 
-    bsp::node_t const& node = bsp[nid];
+    bsp::bsp_node_t const& node = bsp[nid];
     line_t l = node.plane.apply();
 
     DrawLineV({l.p.x, l.p.y}, {l.q.x, l.q.y}, col);
-    if (bsp::EMPTY_LEAF != node.left && bsp::SOLID_LEAF != node.left)
+    if (!bsp::empty_leaf(node.left) && !bsp::solid_leaf(node.left))
         draw_tree(bsp, node.left, col);
-    if (bsp::EMPTY_LEAF != node.right && bsp::SOLID_LEAF != node.right)
+    if (!bsp::empty_leaf(node.right) && !bsp::solid_leaf(node.right))
         draw_tree(bsp, node.right, col);
 }
 
-void draw_cell(bsp::bsp_t const& bsp, size_t nid, vec2_t const& point) {
+void draw_cell(bsp::bsp_t const& bsp, bsp::id_t nid, vec2_t const& point) {
 
-    if (bsp::EMPTY_LEAF == nid || bsp::SOLID_LEAF == nid) return;
+    if (bsp::empty_leaf(nid) || bsp::solid_leaf(nid)) return;
 
-    bsp::node_t const& node = bsp[nid];
+    bsp::bsp_node_t const& node = bsp[nid];
     line_t l = node.plane.apply();
 
     vec2_t p2 = l.p + (l.q - l.p) * -100.f;
@@ -43,6 +56,40 @@ void draw_cell(bsp::bsp_t const& bsp, size_t nid, vec2_t const& point) {
     } else {
         draw_cell(bsp, node.right, point);
     }
+}
+
+void draw_navmesh(bsp::navmesh::navmesh_t const& navmesh) {
+    auto const& links = navmesh.links;
+    for (auto const& n : navmesh.nodes) {
+        vec2_t p = n.face.p + (n.face.q - n.face.p) * 0.5f;
+        draw_cross(p, 0x8080ff);
+        //for (size_t i = n.links_start; i != n.links_end; i++) {
+        //    auto const& n2 = navmesh.nodes[links[i].target];
+        //    vec2_t p2 = n2.face.p + (n2.face.q - n2.face.p) * 0.5f;
+        //    dbg_line(p.x, p.y, p2.x, p2.y, 0x404080);
+        //}
+    }
+}
+
+void draw_path(bsp::navmesh::navmesh_t const& navmesh, std::vector<size_t> const& path) {
+    vec2_t p1, p2;
+    alh::bsp::navmesh::nav_node_t n1, n2;
+    
+    for (size_t i=0; i<path.size()-1; i++) {
+        n1 = navmesh.nodes[path[i]];
+        n2 = navmesh.nodes[path[i+1]];
+        p1 = n1.face.p + (n1.face.q - n1.face.p) * 0.5f;
+        p2 = n2.face.p + (n2.face.q - n2.face.p) * 0.5f;
+        dbg_line(p1.x, p1.y, p2.x, p2.y, 0xff0000);
+        
+        draw_cross(p1, 0xff0000);
+        //dbg_line(p1.x, p1.y, n1.face.p.x, n1.face.p.y, 0x00a0ff);
+        //dbg_line(p1.x, p1.y, n1.face.q.x, n1.face.q.y, 0xffa000);
+    }
+
+    draw_cross(p2, 0xff0000);
+    //dbg_line(p2.x, p2.y, n2.face.p.x, n2.face.p.y, 0x00a0ff);
+    //dbg_line(p2.x, p2.y, n2.face.q.x, n2.face.q.y, 0xffa000);
 }
 
 int main() {
@@ -67,7 +114,7 @@ int main() {
         {{140, 140}, {120, 120}},
         {{120, 120}, {100, 140}},
         {{100, 140}, {120, 160}},
-        {{120, 160}, {140, 140}},
+        //{{120, 160}, {140, 140}}, // having two lines on the same hyperplane creates a zero-area leaf
 
         {{200, 80}, {260, 90}},
         {{260, 90}, {270, 80}},
@@ -75,46 +122,11 @@ int main() {
         {{210, 70}, {200, 80}},
     };
 
-//    for (size_t i=0; i<lines.size(); i++) {
-//        lines[i].userdata = (void *)(i+1);
-//    }
-
-//    std::vector<line_t> lines = {
-//        {{200, 150}, {180, 170}},
-//        {{180, 170}, {220, 170}},
-//        {{220, 170}, {200, 150}}
-//    };
-
-//    std::vector<line_t> lines = {
-//        {{180, 170}, {220, 170}},
-//        {{220, 170}, {220, 130}},
-//        {{220, 130}, {180, 130}},
-//        {{180, 130}, {180, 170}}
-//    };
-
     auto bsp = bsp::build(lines);
+    auto navmesh = bsp::navmesh::build(bsp);
 
-//    std::vector<line_t> lines_a = {
-//        {{200 - 10, 150 + 20}, {200 + 20 - 10, 150 + 20}},
-//        {{200 - 10 + 20, 150 + 20}, {200 + 20 - 10, 150}},
-//        {{200 - 10 + 20, 150}, {200 - 10, 150}},
-//        {{200 - 10, 150}, {200 - 10, 150 + 20}}, //
-//    };
-//    bsp::bsp_t bsp_a = bsp::build(lines_a);
-//
-//    std::vector<line_t> lines_b = {
-//        {{200, 150 + 20 + 5}, {200 + 20, 150 + 20 + 5}},
-//        {{200 + 20, 150 + 20 + 5}, {200 + 20, 150 + 5}},
-//        {{200 + 20, 150 + 5}, {200, 150 + 5}},
-//        {{200, 150 + 5}, {200, 150 + 20 + 5}},
-//    };
-//    bsp::bsp_t bsp_b = bsp::build(lines_b);
-//
-//    auto bsp = bsp::union_op(bsp_a, bsp_b);
-
-//    auto bsp_a = bsp::build({{{0, 150}, {400, 150}, (void *)0xdead}});
-//    auto bsp_b = bsp::build({{{200, 0}, {200, 300}, (void *)0xbeef}});
-//    auto bsp = bsp::difference_op(bsp_a, bsp_b);
+    //auto path = bsp::navmesh::dijkstra(navmesh, 0, 32);
+    //auto points = bsp::navmesh::funnel(navmesh, path, {315.f, 64.f}, {76.f, 136.f});
 
     InitWindow(400, 300, "BSP test");
     SetTargetFPS(60);
@@ -143,6 +155,10 @@ int main() {
                 target_pos = result;
         }
 
+        //printf("%f, %f\n", mpos.x, mpos.y);
+
+        //bsp::navmesh::dijkstra(navmesh, 1, 4);
+
         // draw
         ClearBackground(BLACK);
 
@@ -152,11 +168,30 @@ int main() {
         //for (auto it=bsp.begin(); it!=bsp.end(); ++it)
         //    DrawLineV({it->plane.p.x, it->plane.p.y}, {it->plane.q.x, it->plane.q.y}, colors[GetRandomValue(0, 20)]);
         
-        SetRandomSeed(0xdeafbeef);
-        draw_tree(bsp, 0, GRAY);
-        //draw_cell(bsp, 0, {mpos.x, mpos.y});
+        // draw polygons for empty leaves
+//        auto trs = bsp::navmesh::empty_leaves(bsp);
+//        for (auto tr : trs) {
+//            auto cell = bsp::navmesh::bsp_poly(bsp, 0, tr);
+//            draw_tree(cell, 0, DARKGRAY);
+//
+//            // get center
+//            vec2_t acc = {0, 0};
+//            for (bsp::bsp_node_t n : cell)
+//                acc = acc + n.plane.apply().p;
+//            acc = acc / cell.size();
+//
+//            draw_cross(acc, 0x505050);
+//        }
 
-        //traj_t traj = get_traj(bsp, {mpos.x, mpos.y});
+        SetRandomSeed(0xdeafbeef);
+        draw_tree(bsp, 0, WHITE);
+
+        //auto traj = bsp::navmesh::traj_at_point(bsp, {mpos.x, mpos.y});
+        //printf("{mask = %lu, bits = %lu}\n", traj.mask, traj.bits);
+
+        //auto poly = bsp::navmesh::bsp_poly(bsp, 0, {127, 71});
+        //draw_tree(poly, 0, PINK);
+
         //std::bitset<64> s_bits(traj.bits);
         //std::bitset<64> s_mask(traj.mask);
         //printf("bits: %s, mask: %s\n", s_bits.to_string().c_str(), s_mask.to_string().c_str());
@@ -166,33 +201,28 @@ int main() {
         //auto lcn = find_lcn(bsp, 0, tr_mpos, tr_player);
         //DrawLineV({lcn.plane.p.x, lcn.plane.p.y}, {lcn.plane.q.x, lcn.plane.q.y}, SKYBLUE);
 
-//        auto tr_mpos = bsp::navmesh::get_traj(bsp, {mpos.x, mpos.y});
-//        auto tr_player = bsp::navmesh::get_traj(bsp, player_pos);
-//        bool b_neighbors = bsp::navmesh::neighbors(bsp, tr_mpos, tr_player);
-//        printf("neighbor: %d\n", b_neighbors);
-//
-//        size_t depth=0, nid=0;
-//        bsp::navmesh::find_lcn(bsp, 0, tr_mpos, tr_player, depth, nid);
-//        printf("DEPTH: %d\n", depth);
-        
-//        {
-//            auto l = bsp[nid].plane;
-//            DrawLineV({l.p.x, l.p.y}, {l.q.x, l.q.y}, PINK);
+//        auto tr_mpos = bsp::navmesh::traj_at_point(bsp, {mpos.x, mpos.y});
+//        auto cell = bsp::navmesh::bsp_poly(bsp, 0, tr_mpos);
+//        draw_tree(cell, 0, PINK);
+
+//        printf("old: ");
+//        for (bsp::bsp_node_t n : cell) {
+//            printf("%lu ", (size_t)n.plane.line.userdata);
 //        }
+//        printf("\n");
 
-        auto tr_mpos = bsp::navmesh::get_traj(bsp, {mpos.x, mpos.y});
-        auto cell = bsp::navmesh::bsp_poly(bsp, 0, tr_mpos);
-        draw_tree(cell, 0, PINK);
+        bsp::id_t id_mpos = bsp::leaf_id(bsp, 0, {mpos.x, mpos.y});
 
-        for (bsp::node_t n : cell) {
-            printf("%lu ", (size_t)n.plane.line.userdata);
-        }
-        printf("\n");
+        auto cell2 = bsp::navmesh::leaf_poly(bsp, id_mpos);
+        draw_tree(cell2, 0, PINK);
 
-        //auto indices = bsp::navmesh::cell_indices(bsp, 0, tr_mpos);
-
-        //std::vector<size_t> indices;
-        //for (bsp::node_t node : cell) indices.push_back((size_t)node.plane.userdata);
+//        printf("new: ");
+//        for (bsp::bsp_node_t n : cell2) {
+//            printf("%lu ", (size_t)n.plane.line.userdata);
+//        }
+//        printf("\n");
+//
+//        printf("id_mpos: %d\n", id_mpos);
 
         //for (size_t lu : indices) {
         //    printf("%lu ", lu);
@@ -207,11 +237,28 @@ int main() {
         DrawCircle(player_pos.x, player_pos.y, 3.f, bsp::is_solid(bsp, 0, player_pos) ? RED : BLUE);
         DrawCircle(mpos.x, mpos.y, 3.f, bsp::is_solid(bsp, 0, {mpos.x, mpos.y}) ? RED : BLUE);
 
-        //DrawLineV({bsp[0].plane.line.p.x, bsp[0].plane.line.p.y}, {bsp[0].plane.line.q.x, bsp[0].plane.line.q.y}, PURPLE);
+        //draw_navmesh(navmesh);
+        //draw_path(navmesh, path);
 
-        //BeginBlendMode(BLEND_ADDITIVE);
-        //dbg_shapes().draw();
-        //EndBlendMode();
+        //for (size_t i=0; i<points.size()-1; i++) {
+        //    vec2_t p1 = points[i];
+        //    vec2_t p2 = points[i+1];
+        //    dbg_line(p1.x, p1.y, p2.x, p2.y, 0xff00ff);
+        //}
+
+        for (size_t i=navmesh.lookup[id_mpos].first; i<navmesh.lookup[id_mpos].second; i++) {
+            bsp::navmesh::nav_node_t const& n = navmesh.nodes[i];
+            vec2_t p = n.face.p + (n.face.q - n.face.p) * 0.5f;
+            draw_cross(p, 0xff0000);
+        }
+
+        dbg_shapes().draw();
+
+//        auto portals = bsp::navmesh::generate_portals(bsp);
+//        for (auto portal : portals) {
+//            line_t l = portal.paramline.apply();
+//            DrawLineV({l.p.x, l.p.y}, {l.q.x, l.q.y}, ORANGE);
+//        }
 
         EndDrawing();
     }

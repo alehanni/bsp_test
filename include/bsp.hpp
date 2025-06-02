@@ -12,6 +12,7 @@
 namespace alh::bsp {
 
     using id_t = uint32_t;
+    static constexpr id_t NULL_ID = (id_t)(-1);
     static constexpr id_t IS_LEAF = 0x80000000;
     static constexpr id_t IS_SOLID = 0x40000000;
     static inline bool is_leaf(id_t nid) { return (nid & IS_LEAF); };
