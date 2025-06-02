@@ -61,12 +61,10 @@ void draw_cell(bsp::bsp_t const& bsp, bsp::id_t nid, vec2_t const& point) {
 void draw_navmesh(bsp::navmesh::navmesh_t const& navmesh) {
     auto const& links = navmesh.links;
     for (auto const& n : navmesh.nodes) {
-        vec2_t p = n.face.p + (n.face.q - n.face.p) * 0.5f;
-        draw_cross(p, 0x8080ff);
-        //for (size_t i = n.links_start; i != n.links_end; i++) {
+        draw_cross(n.position, 0x8080ff);
+        //for (size_t i= n.links_start; i != n.links_end; i++) {
         //    auto const& n2 = navmesh.nodes[links[i].target];
-        //    vec2_t p2 = n2.face.p + (n2.face.q - n2.face.p) * 0.5f;
-        //    dbg_line(p.x, p.y, p2.x, p2.y, 0x404080);
+        //    dbg_line(n.position.x, n.position.y, n2.position.x, n2.position.y, 0x404080);
         //}
     }
 }
@@ -78,8 +76,8 @@ void draw_path(bsp::navmesh::navmesh_t const& navmesh, std::vector<size_t> const
     for (size_t i=0; i<path.size()-1; i++) {
         n1 = navmesh.nodes[path[i]];
         n2 = navmesh.nodes[path[i+1]];
-        p1 = n1.face.p + (n1.face.q - n1.face.p) * 0.5f;
-        p2 = n2.face.p + (n2.face.q - n2.face.p) * 0.5f;
+        p1 = n1.position;
+        p2 = n2.position;
         dbg_line(p1.x, p1.y, p2.x, p2.y, 0xff0000);
         
         draw_cross(p1, 0xff0000);
@@ -127,6 +125,8 @@ int main() {
 
     //auto path = bsp::navmesh::dijkstra(navmesh, 0, 32);
     //auto points = bsp::navmesh::funnel(navmesh, path, {315.f, 64.f}, {76.f, 136.f});
+
+    auto test = bsp::navmesh::dijkstra(navmesh, 10, 1);    
 
     InitWindow(400, 300, "BSP test");
     SetTargetFPS(60);
@@ -215,6 +215,21 @@ int main() {
 
         auto cell2 = bsp::navmesh::leaf_poly(bsp, id_mpos);
         draw_tree(cell2, 0, PINK);
+        //printf("size: %lu\n", cell2.size());
+
+        bsp::id_t id_player = bsp::leaf_id(bsp, 0, {player_pos.x, player_pos.y});
+
+        
+        if (!bsp::is_solid(bsp, 0, {mpos.x, mpos.y})) {
+            auto path = bsp::navmesh::dijkstra(navmesh, id_player, id_mpos);
+            
+            printf("path: ");
+            for (size_t i : path)
+                printf("%lu ", i);
+            printf("\n");
+
+            draw_path(navmesh, path);
+        }
 
 //        printf("new: ");
 //        for (bsp::bsp_node_t n : cell2) {
@@ -237,7 +252,7 @@ int main() {
         DrawCircle(player_pos.x, player_pos.y, 3.f, bsp::is_solid(bsp, 0, player_pos) ? RED : BLUE);
         DrawCircle(mpos.x, mpos.y, 3.f, bsp::is_solid(bsp, 0, {mpos.x, mpos.y}) ? RED : BLUE);
 
-        //draw_navmesh(navmesh);
+        draw_navmesh(navmesh);
         //draw_path(navmesh, path);
 
         //for (size_t i=0; i<points.size()-1; i++) {
@@ -246,11 +261,11 @@ int main() {
         //    dbg_line(p1.x, p1.y, p2.x, p2.y, 0xff00ff);
         //}
 
-        for (size_t i=navmesh.lookup[id_mpos].first; i<navmesh.lookup[id_mpos].second; i++) {
-            bsp::navmesh::nav_node_t const& n = navmesh.nodes[i];
-            vec2_t p = n.face.p + (n.face.q - n.face.p) * 0.5f;
-            draw_cross(p, 0xff0000);
-        }
+//        for (size_t i=navmesh.lookup[id_mpos].first; i<navmesh.lookup[id_mpos].second; i++) {
+//            bsp::navmesh::nav_node_t const& n = navmesh.nodes[i];
+//            vec2_t p = n.face.p + (n.face.q - n.face.p) * 0.5f;
+//            draw_cross(p, 0xff0000);
+//        }
 
         dbg_shapes().draw();
 
