@@ -15,7 +15,8 @@ struct vec2_t {
     friend bool operator==(vec2_t const& lhs, vec2_t const& rhs) { return (lhs.x==rhs.x && lhs.y==rhs.y); }
     friend bool operator!=(vec2_t const& lhs, vec2_t const& rhs) { return !(lhs == rhs); }
     
-    bool is_left_of(auto l) const { // todo: avoid using auto here
+    // todo: avoid all uses of is_left_of with a cross product and remove method
+    bool is_left_of(auto l) const {
         vec2_t dl = l.q - l.p;
         return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) < 0;
     }
@@ -25,6 +26,10 @@ struct vec2_t {
         return (x - l.p.x)*(-dl.y) + (y - l.p.y)*(dl.x) == 0;
     }
 };
+
+static float cross(vec2_t a, vec2_t b) {
+    return (a.x*b.y - b.x*a.y);
+}
 
 static float dist2(vec2_t const& p, vec2_t const& q) {
     vec2_t pq = q - p;

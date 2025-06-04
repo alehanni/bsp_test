@@ -8,6 +8,7 @@
 #include <array>
 #include <map>
 
+#include "dbg_shapes.hpp" // TODO: REMOVE
 #include "alh.hpp"
 //#include "hashmap.hpp"
 #include "bsp.hpp"
@@ -108,7 +109,6 @@ struct navmesh_t {
     std::vector<nav_link_t> links;
 };
 
-// todo: build navmesh with nodes at leaf centerpoints instead
 navmesh_t build(bsp_t const& bsp) {
 
     size_t n_leaves = 0;
@@ -170,7 +170,7 @@ navmesh_t build(bsp_t const& bsp) {
                 b_tmin = std::min(b.t1, b.t2);
                 b_tmax = std::max(b.t1, b.t2);
 
-                paramline_t portal;
+                paramline_t portal = a.line;
 
                 bool b_overlap = false;
                 if ((b_overlap |= a_tmin <= b_tmin && b_tmin < a_tmax)) {
@@ -282,58 +282,125 @@ path_t dijkstra(navmesh_t const& navmesh, size_t src, size_t dest) {
     return path;
 }
 
-/*
-std::vector<vec2_t> funnel(navmesh_t const& navmesh, path_t const& path, vec2_t start, vec2_t goal) {
+std::vector<vec2_t> string_pull(std::vector<line_t> portals, vec2_t start, vec2_t goal) {
 
-    assert(path.size() > 0);
+    line_t ray = {start, goal};
+    std::vector<vec2_t> out;
+    out.push_back(start);
+
+    for (line_t portal : portals) {
+        if (ray.q.is_left_of((line_t){ray.p, portal.p})) {
+            out.push_back(portal.p);
+            ray.p = portal.p;
+            continue;
+        }
+
+        if (!ray.q.is_left_of((line_t){ray.p, portal.q})) {
+            out.push_back(portal.q);
+            ray.p = portal.q;
+        }
+    }
+
+    out.push_back(goal);
+    return out;
+}
+
+std::vector<vec2_t> funnel(std::vector<line_t> portals, vec2_t start, vec2_t goal) {
+
+    assert(!portals.empty());
 
     vec2_t apex = start;
-    vec2_t p = navmesh.nodes[path[0]].face.p; // right funnel point
-    vec2_t q = navmesh.nodes[path[0]].face.q; // left funnel point
+    vec2_t p = portals[0].p; // left
+    vec2_t q = portals[0].q; // right
+
+    portals.push_back({goal, goal});
+
     std::vector<vec2_t> out;
-
-    for(size_t i=1; i<path.size(); i++) {
-        
-        line_t portal = navmesh.nodes[path[i]].face;
-
-        if (portal.p.is_left_of((line_t){apex, q})) {
-            out.push_back(apex);
-            apex = q;
-            p = portal.p;
-            q = portal.q;
-            continue;
-        }
-
-        if (portal.p.is_left_of((line_t){apex, p}))
-            p = portal.p;
-        
-        if (!portal.q.is_left_of((line_t){apex, p})) {
-            out.push_back(apex);
-            apex = p;
-            p = portal.p;
-            q = portal.q;
-            continue;
-        }
-
-        if (!portal.q.is_left_of((line_t){apex, q}))
-            q = portal.q;
-    }
-    
     out.push_back(apex);
+
+    size_t li=0, ri=0;
+
+    for (size_t i=1; i<portals.size(); i++) {
+        assert(out.size() <= portals.size() + 2);
+
+        vec2_t p2 = portals[i].p;
+
+        if (cross(q - apex, p2 - apex) > 0.f) { // p2 right of q
+            out.push_back(q);
+            apex = q;
+            li = ri;
+            i = ri;
+            p = portals[ri+1].p;
+            q = portals[ri+1].q;
+            continue;
+        }
+
+        if (cross(p - apex, p2 - apex) >= 0.f) { // p2 right of p
+            p = p2;
+            li = i;
+        }
+
+        vec2_t q2 = portals[i].q;
+
+        if (cross(p - apex, q2 - apex) < 0.f) { // q2 left of p
+            out.push_back(p);
+            apex = p;
+            ri = li;
+            i = li;
+            p = portals[li+1].p;
+            q = portals[li+1].q;
+            continue;
+        }
+
+        if (cross(q - apex, q2 - apex) <= 0.f) { // q2 left of q
+            q = q2;
+            ri = i;
+        }
+    }
+
     out.push_back(goal);
 
     return out;
 }
-*/
 
-void find_path(navmesh_t const& navmesh, vec2_t start, vec2_t goal) {
+static inline void draw_cross(vec2_t p, uint32_t col) {
+    // draw a cute little cross
+    p.x = floorf(p.x);
+    p.y = floorf(p.y);
+    vec2_t p1, p2, p3, p4;
+    p1 = p - vec2_t{2.f, 2.f};
+    p2 = p + vec2_t{2.f, 2.f};
+    p3 = p - vec2_t{2.f, -2.f};
+    p4 = p + vec2_t{2.f, -2.f};
+    dbg_line(p1.x, p1.y, p2.x, p2.y, col);
+    dbg_line(p3.x, p3.y, p4.x, p4.y, col);
+}
 
-    // find portals at start/goal trajectory
-    // select closest/ do a pseudo-first-step of dijkstra
-    // run regular dijkstra (with multiple goals)
+std::vector<vec2_t> find_path(bsp_t const& bsp, navmesh_t const& navmesh, vec2_t start, vec2_t goal) {
 
+    id_t start_id = leaf_id(bsp, 0, start);
+    id_t goal_id = leaf_id(bsp, 0, goal);
 
+    if (start_id == goal_id) return {start, goal};
 
+    path_t path = dijkstra(navmesh, start_id, goal_id);
+
+    // get portals along path
+    std::vector<line_t> portals;
+    portals.reserve(path.size() - 1);
+    for(size_t i=0; i<path.size()-1; i++) {
+        size_t li = navmesh.nodes[path[i]].links_start;
+        while (path[i+1] != navmesh.links[li].target) li++;
+        portals.push_back(navmesh.links[li].portal);
+    }
+
+//    for (line_t portal : portals) { // TODO: REMOVE
+//        dbg_line(portal.p.x, portal.p.y, portal.q.x, portal.q.y, 0x00ffff);
+//        draw_cross(portal.p, 0xffff00);
+//    }
+//    draw_cross(portals[0].p, 0x00ff00);
+
+    return funnel(portals, start, goal);
 }
 
 } // namespace navmesh

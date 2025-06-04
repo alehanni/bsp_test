@@ -10,7 +10,7 @@ using namespace alh;
 
 vec2_t player_pos = {240.f, 120.f};
 
-void draw_cross(vec2_t p, uint32_t col) {
+static inline void draw_cross(vec2_t p, uint32_t col) {
     // draw a cute little cross
     p.x = floorf(p.x);
     p.y = floorf(p.y);
@@ -169,19 +169,19 @@ int main() {
         //    DrawLineV({it->plane.p.x, it->plane.p.y}, {it->plane.q.x, it->plane.q.y}, colors[GetRandomValue(0, 20)]);
         
         // draw polygons for empty leaves
-//        auto trs = bsp::navmesh::empty_leaves(bsp);
-//        for (auto tr : trs) {
-//            auto cell = bsp::navmesh::bsp_poly(bsp, 0, tr);
-//            draw_tree(cell, 0, DARKGRAY);
-//
-//            // get center
-//            vec2_t acc = {0, 0};
-//            for (bsp::bsp_node_t n : cell)
-//                acc = acc + n.plane.apply().p;
-//            acc = acc / cell.size();
-//
-//            draw_cross(acc, 0x505050);
-//        }
+        auto ids = bsp::navmesh::empty_leaves(bsp);
+        for (auto id : ids) {
+            auto cell = bsp::navmesh::leaf_poly(bsp, id);
+            draw_tree(cell, 0, DARKGRAY);
+
+            // get center
+            vec2_t acc = {0, 0};
+            for (bsp::bsp_node_t n : cell)
+                acc = acc + n.plane.apply().p;
+            acc = acc / cell.size();
+
+            draw_cross(acc, 0x505050);
+        }
 
         SetRandomSeed(0xdeafbeef);
         draw_tree(bsp, 0, WHITE);
@@ -213,8 +213,8 @@ int main() {
 
         bsp::id_t id_mpos = bsp::leaf_id(bsp, 0, {mpos.x, mpos.y});
 
-        auto cell2 = bsp::navmesh::leaf_poly(bsp, id_mpos);
-        draw_tree(cell2, 0, PINK);
+        //auto cell2 = bsp::navmesh::leaf_poly(bsp, id_mpos);
+        //draw_tree(cell2, 0, PINK);
         //printf("size: %lu\n", cell2.size());
 
         bsp::id_t id_player = bsp::leaf_id(bsp, 0, {player_pos.x, player_pos.y});
@@ -223,12 +223,25 @@ int main() {
         if (!bsp::is_solid(bsp, 0, {mpos.x, mpos.y})) {
             auto path = bsp::navmesh::dijkstra(navmesh, id_player, id_mpos);
             
-            printf("path: ");
-            for (size_t i : path)
-                printf("%lu ", i);
-            printf("\n");
+//            printf("path: ");
+//            for (size_t i : path)
+//                printf("%lu ", i);
+//            printf("\n");
+//
+//            draw_path(navmesh, path);
 
-            draw_path(navmesh, path);
+            auto points = bsp::navmesh::find_path(bsp,
+                                                   navmesh,
+                                                   {player_pos.x, player_pos.y},
+                                                   {mpos.x, mpos.y});
+//            for (line_t portal : portals) {
+//                dbg_line(portal.p.x, portal.p.y, portal.q.x, portal.q.y, 0x00ffff);
+//            }
+            for (size_t i=0; i<points.size()-1; i++) {
+                vec2_t p1 = points[i];
+                vec2_t p2 = points[i+1];
+                dbg_line(p1.x, p1.y, p2.x, p2.y, 0xff00ff);
+            }
         }
 
 //        printf("new: ");
@@ -248,7 +261,7 @@ int main() {
 //        std::bitset<64> s_mask(tr_mpos.mask);
 //        printf("bits: %s, mask: %s\n", s_bits.to_string().c_str(), s_mask.to_string().c_str());
 
-        DrawLineV({player_pos.x, player_pos.y}, {target_pos.x, target_pos.y}, GREEN);
+        //DrawLineV({player_pos.x, player_pos.y}, {target_pos.x, target_pos.y}, GREEN);
         DrawCircle(player_pos.x, player_pos.y, 3.f, bsp::is_solid(bsp, 0, player_pos) ? RED : BLUE);
         DrawCircle(mpos.x, mpos.y, 3.f, bsp::is_solid(bsp, 0, {mpos.x, mpos.y}) ? RED : BLUE);
 
