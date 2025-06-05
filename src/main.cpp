@@ -126,7 +126,7 @@ int main() {
     //auto path = bsp::navmesh::dijkstra(navmesh, 0, 32);
     //auto points = bsp::navmesh::funnel(navmesh, path, {315.f, 64.f}, {76.f, 136.f});
 
-    auto test = bsp::navmesh::dijkstra(navmesh, 10, 1);    
+    //auto test = bsp::navmesh::dijkstra(navmesh, 10, 1);
 
     InitWindow(400, 300, "BSP test");
     SetTargetFPS(60);
@@ -221,7 +221,7 @@ int main() {
 
         
         if (!bsp::is_solid(bsp, 0, {mpos.x, mpos.y})) {
-            auto path = bsp::navmesh::dijkstra(navmesh, id_player, id_mpos);
+            //auto path = bsp::navmesh::dijkstra(navmesh, id_player, id_mpos);
             
 //            printf("path: ");
 //            for (size_t i : path)
