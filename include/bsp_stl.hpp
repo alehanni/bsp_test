@@ -21,23 +21,17 @@ namespace alh::bsp {
         off += 4;
         assert(n_tris > 0);
 
-        // iteratively build bsp
-        bsp_t bsp;
+        // turn triangles into lines
+        std::vector<line_t> lines;
+        lines.reserve(n_tris * 3);
         for(size_t n=0; n<n_tris && off<len; n++, off+=50) {
             vec2_t v1, v2, v3; // (skip z component)
             memcpy(&v1, data + off + 12, 8);
             memcpy(&v2, data + off + 24, 8);
             memcpy(&v3, data + off + 36, 8);
 
-            // inflate triangle (to help union op)
-            float eps = 1e-6;
-            vec2_t avg = (v1 + v2 + v3) / 3.f;
-            v1 = avg + (v1 - avg) * (1.f + eps);
-            v2 = avg + (v2 - avg) * (1.f + eps);
-            v3 = avg + (v3 - avg) * (1.f + eps);
-
             line_t l1, l2, l3;
-            if (cross(v1 - v3, v2 - v3) < 0.f) {
+            if (cross(v1 - v3, v2 - v3) > 0.f) {
                 l1 = {v1, v2};
                 l2 = {v2, v3};
                 l3 = {v3, v1};
@@ -47,9 +41,28 @@ namespace alh::bsp {
                 l3 = {v2, v1};
             }
 
-            bsp = union_op(bsp, build((std::vector<line_t>){l1, l2, l3}));
+            lines.push_back(l1);
+            lines.push_back(l2);
+            lines.push_back(l3);
         }
 
+        // remove diagonals
+        for (size_t i=0; i<lines.size(); i++) {
+            for (size_t j=i+1; j<lines.size(); j++) {
+                line_t l1 = lines[i];
+                line_t l2 = lines[j];
+                if (l1.p == l2.q && l1.q == l2.p) {
+                    lines[i] = lines[lines.size() - 1];
+                    lines[j] = lines[lines.size() - 2];
+                    lines.pop_back();
+                    lines.pop_back();
+                    i -= 1;
+                    break;
+                }
+            }
+        }
+
+        bsp_t bsp = build(lines);
         return bsp;
     }
 

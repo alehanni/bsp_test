@@ -3,8 +3,11 @@
 
 #include "raylib.h"
 #include "bsp.hpp"
+#include "bsp_stl.hpp"
 #include "navmesh.hpp"
 #include "dbg_shapes.hpp"
+
+#include "test.stl.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -157,7 +160,7 @@ void update_draw_frame() {
         }
     }
 
-    //DrawLineV({player_pos.x, player_pos.y}, {target_pos.x, target_pos.y}, GREEN);
+    DrawLineV({player_pos.x, player_pos.y}, {target_pos.x, target_pos.y}, GREEN);
     DrawCircle(player_pos.x, player_pos.y, 3.f, bsp::is_solid(g_bsp, 0, player_pos) ? RED : BLUE);
     DrawCircle(mpos.x, mpos.y, 3.f, bsp::is_solid(g_bsp, 0, {mpos.x, mpos.y}) ? RED : BLUE);
     draw_navmesh(g_navmesh);
@@ -169,35 +172,38 @@ void update_draw_frame() {
 
 int main() {
 
-    std::vector<line_t> lines = {
-        {{60, 40}, {340, 40}},
-        {{340, 40}, {320, 220}},
-        {{320, 220}, {60, 240}},
-        {{60, 240}, {60, 40}},
+    // build bsp from .stl
+    g_bsp = bsp::from_stl(test_stl, test_stl_len);
 
-        {{200, 160}, {210, 140}},
-        {{210, 140}, {180, 150}},
-        {{180, 150}, {200, 160}},
-
-        {{220, 190}, {240, 190}},
-        {{240, 190}, {240, 160}},
-        {{240, 160}, {230, 160}},
-        {{230, 160}, {230, 180}},
-        {{230, 180}, {220, 180}},
-        {{220, 180}, {220, 190}},
-
-        {{140, 140}, {120, 120}},
-        {{120, 120}, {100, 140}},
-        {{100, 140}, {120, 160}},
-        {{120, 160}, {140, 140}}, // having two lines on the same hyperplane creates a zero-area leaf
-
-        {{200, 80}, {260, 90}},
-        {{260, 90}, {270, 80}},
-        {{270, 80}, {210, 70}},
-        {{210, 70}, {200, 80}},
-    };
-
-    g_bsp = bsp::build(lines);
+//    std::vector<line_t> lines = {
+//        {{60, 40}, {340, 40}},
+//        {{340, 40}, {320, 220}},
+//        {{320, 220}, {60, 240}},
+//        {{60, 240}, {60, 40}},
+//
+//        {{200, 160}, {210, 140}},
+//        {{210, 140}, {180, 150}},
+//        {{180, 150}, {200, 160}},
+//
+//        {{220, 190}, {240, 190}},
+//        {{240, 190}, {240, 160}},
+//        {{240, 160}, {230, 160}},
+//        {{230, 160}, {230, 180}},
+//        {{230, 180}, {220, 180}},
+//        {{220, 180}, {220, 190}},
+//
+//        {{140, 140}, {120, 120}},
+//        {{120, 120}, {100, 140}},
+//        {{100, 140}, {120, 160}},
+//        {{120, 160}, {140, 140}}, // having two lines on the same hyperplane creates a zero-area leaf
+//
+//        {{200, 80}, {260, 90}},
+//        {{260, 90}, {270, 80}},
+//        {{270, 80}, {210, 70}},
+//        {{210, 70}, {200, 80}},
+//    };
+//
+//    g_bsp = bsp::build(lines);
     g_navmesh = bsp::navmesh::build(g_bsp);
 
     InitWindow(400, 300, "BSP test");
