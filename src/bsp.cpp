@@ -51,7 +51,6 @@ id_t build_impl(build_context_t &ctx, paramline_t hyperplane, id_t i_begin, id_t
     auto right_side = std::partition(ctx.tmp.begin() + i_begin, ctx.tmp.end(), [=](paramline_t const& pl) {
         line_t l = pl.apply();
         vec2_t mid = (l.p + l.q) / 2.f;
-        mid = mid - l.w_normal().normal; // yeah you could consider me a bit of a hacker
         return mid.is_left_of(lh);
     });
     id_t i_split = std::distance(ctx.tmp.begin(), right_side);

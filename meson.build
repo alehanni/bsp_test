@@ -1,5 +1,5 @@
 
-project('luajit_test', 'cpp', default_options : ['cpp_std=c++20'])
+project('bsp_test', 'cpp', default_options : ['cpp_std=c++20'])
 
 cpp = meson.get_compiler('cpp')
 
