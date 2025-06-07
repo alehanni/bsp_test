@@ -173,9 +173,10 @@ navmesh_t build(bsp_t const& bsp) {
                 } else if ((b_overlap |= b_tmin <= a_tmin && a_tmin < b_tmax)) {
                     portal.t1 = a_tmin;
                 }
+                portal.t2 = std::min(a_tmax, b_tmax);
 
-                if (b_overlap) {
-                    portal.t2 = std::min(a_tmax, b_tmax);
+                float eps = 1e-4;
+                if (b_overlap && fabsf(portal.t1 - portal.t2) > eps) {
                     tagged_links.push_back({a_lid, {b_lid, portal.apply(), 0.f}});
                     tagged_links.push_back({b_lid, {a_lid, portal.flip().apply(), 0.f}});
                 }

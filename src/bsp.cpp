@@ -31,6 +31,36 @@ bool split_line(paramline_t const& hyperplane, paramline_t const& subj, paramlin
     return b_result;
 }
 
+id_t h_geometric_mean(std::vector<paramline_t> const& planes, id_t i_begin, id_t i_end) {
+    // select plane closest to the geometric mean
+    assert(planes.size() > 0);
+
+    vec2_t mean;
+    {
+        line_t l = planes[i_begin].apply();
+        mean = (l.p + l.q) / 2.f;
+    }
+
+    for (id_t i=i_begin+1, n=2; i != i_end && i != planes.size(); i++, n+=2) {
+        line_t l = planes[i].apply();
+        mean = mean + (l.p - mean) / n;
+        mean = mean + (l.q - mean) / (n+1);
+    }
+
+    id_t nearest_i = 0;
+    float nearest_d2 = std::numeric_limits<float>::infinity();
+    for (id_t i=i_begin; i != i_end && i != planes.size(); i++) {
+        line_t l = planes[i].apply();
+        float d2 = dist2((l.p + l.q) / 2.f, mean);
+        if (d2 < nearest_d2) {
+            nearest_i = i;
+            nearest_d2 = d2;
+        }
+    }
+
+    return nearest_i;
+}
+
 id_t build_impl(build_context_t &ctx, paramline_t hyperplane, id_t i_begin, id_t i_end) {
     
     line_t lh = hyperplane.apply();
@@ -61,14 +91,18 @@ id_t build_impl(build_context_t &ctx, paramline_t hyperplane, id_t i_begin, id_t
 
     // pop last line in tmp, (todo: select with heuristic and swap+pop)
     if (id_t i_last = ctx.tmp.size(); i_split < i_last) {
-        paramline_t right_split = ctx.tmp.back(); ctx.tmp.pop_back();
+        id_t i_h = h_geometric_mean(ctx.tmp, i_split, i_last);
+        paramline_t right_split = ctx.tmp[i_h];
+        ctx.tmp[i_h] = ctx.tmp.back(); ctx.tmp.pop_back();
         ctx.nodes[i_self].right = build_impl(ctx, right_split, i_split, i_last);
     } else {
         ctx.nodes[i_self].right = ((ctx.leaf_id_acc++) | IS_LEAF) & ~IS_SOLID;
     }
 
     if (i_begin < i_split) {
-        paramline_t left_split = ctx.tmp.back(); ctx.tmp.pop_back();
+        id_t i_h = h_geometric_mean(ctx.tmp, i_begin, i_split);
+        paramline_t left_split = ctx.tmp[i_h];
+        ctx.tmp[i_h] = ctx.tmp.back(); ctx.tmp.pop_back();
         ctx.nodes[i_self].left = build_impl(ctx, left_split, i_begin, i_split);
     } else {
         ctx.nodes[i_self].left = ((ctx.leaf_id_acc++) | IS_LEAF) | IS_SOLID;
@@ -178,7 +212,9 @@ bsp_t build(std::vector<paramline_t> paramlines) {
     ctx.tmp = std::move(paramlines);
 
     // select root hyperplane
-    paramline_t hyperplane = ctx.tmp.back(); ctx.tmp.pop_back();
+    id_t i_h = h_geometric_mean(ctx.tmp, 0, ctx.tmp.size());
+    paramline_t hyperplane = ctx.tmp[i_h];
+    ctx.tmp[i_h] = ctx.tmp.back(); ctx.tmp.pop_back();
     build_impl(ctx, hyperplane, 0, ctx.tmp.size());
 
     return ctx.nodes;

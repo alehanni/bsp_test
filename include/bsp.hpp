@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include <algorithm>
 
@@ -25,7 +26,7 @@ namespace alh::bsp {
 
         paramline_t() { }
         paramline_t(line_t l) : line(l), t1(0.f), t2(1.f) { }
-        paramline_t(line_t l, float t1, float t2) : line(l), t1(t1), t2(t2) { assert(t1 != t2); }
+        paramline_t(line_t l, float t1, float t2) : line(l), t1(t1), t2(t2) { assert(fabs(t1 - t2) > 1e-4); }
 
         paramline_t &flip() {
             float tmp = t1;
@@ -70,6 +71,9 @@ namespace alh::bsp {
     bool sweep(bsp_t const& bsp, line_t const& line, vec2_t &intersection, line_t &intersected);
     bool clip(clip_context_t &ctx, id_t root);
     void dot_solve(bsp_t const& bsp, vec2_t const& p1, vec2_t &p2);
+
+    void serialize(bsp_t const& in);
+    bsp_t deserialize(uint8_t *data, size_t len);
 
     bsp_t union_op(bsp_t const& a, bsp_t const& b);
     bsp_t intersect_op(bsp_t const& a, bsp_t const& b);

@@ -160,6 +160,9 @@ void update_draw_frame() {
         }
     }
 
+    line_t const& rootplane = g_bsp.front().plane.apply();
+    DrawLineV({rootplane.p.x, rootplane.p.y}, {rootplane.q.x, rootplane.q.y}, GREEN);
+
     DrawLineV({player_pos.x, player_pos.y}, {target_pos.x, target_pos.y}, GREEN);
     DrawCircle(player_pos.x, player_pos.y, 3.f, bsp::is_solid(g_bsp, 0, player_pos) ? RED : BLUE);
     DrawCircle(mpos.x, mpos.y, 3.f, bsp::is_solid(g_bsp, 0, {mpos.x, mpos.y}) ? RED : BLUE);
